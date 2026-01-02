@@ -1,29 +1,110 @@
-import { Link } from 'expo-router';
-import { StyleSheet } from 'react-native';
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+} from 'react-native';
+import { useEffect, useState } from 'react';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { cargarNotas, guardarNotas } from '../services/storage';
+import { colors } from '../styles/theme';
 
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
+export default function NotaModal() {
+  const { id } = useLocalSearchParams();
+  const router = useRouter();
 
-export default function ModalScreen() {
+  const [texto, setTexto] = useState('');
+  const [notas, setNotas] = useState<any[]>([]);
+
+  useEffect(() => {
+    cargarNotas().then((data) => {
+      if (!data) return;
+
+      setNotas(data);
+
+      if (id) {
+        const nota = data.find((n: any) => n.id === id);
+        if (nota) setTexto(nota.text);
+      }
+    });
+  }, []);
+
+  const guardar = async () => {
+    if (!texto.trim()) return;
+
+    let nuevas;
+
+    if (id) {
+      nuevas = notas.map((n) =>
+        n.id === id ? { ...n, text: texto } : n
+      );
+    } else {
+      nuevas = [
+        {
+          id: Date.now().toString(),
+          text: texto,
+          color: '#FEF3C7',
+          createdAt: Date.now(),
+        },
+        ...notas,
+      ];
+    }
+
+    await guardarNotas(nuevas);
+    router.back();
+  };
+
   return (
-    <ThemedView style={styles.container}>
-      <ThemedText type="title">This is a modal</ThemedText>
-      <Link href="/" dismissTo style={styles.link}>
-        <ThemedText type="link">Go to home screen</ThemedText>
-      </Link>
-    </ThemedView>
+    <View style={styles.container}>
+      <Text style={styles.title}>
+        {id ? 'Editar nota' : 'Nueva nota'}
+      </Text>
+
+      <TextInput
+        style={styles.input}
+        placeholder="Escribe aquí..."
+        value={texto}
+        onChangeText={setTexto}
+        multiline
+      />
+
+      <TouchableOpacity style={styles.button} onPress={guardar}>
+        <Text style={styles.buttonText}>
+          {id ? 'Actualizar' : 'Guardar'}
+        </Text>
+      </TouchableOpacity>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
     padding: 20,
+    backgroundColor: colors.background,
   },
-  link: {
-    marginTop: 15,
-    paddingVertical: 15,
+  title: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    marginBottom: 15,
+  },
+  input: {
+    backgroundColor: colors.white,
+    padding: 15,
+    borderRadius: 10,
+    minHeight: 120,
+    textAlignVertical: 'top',
+  },
+  button: {
+    backgroundColor: colors.primary,
+    padding: 14,
+    borderRadius: 10,
+    alignItems: 'center',
+    marginTop: 20,
+  },
+  buttonText: {
+    color: colors.white,
+    fontWeight: 'bold',
   },
 });
