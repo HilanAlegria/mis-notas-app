@@ -10,12 +10,32 @@ export default function RootLayout() {
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          animation: 'fade',
+        }}
+      >
+        {/* Pantalla principal */}
         <Stack.Screen
           name="index"
-          options={{ headerShown: false }}
+          options={{
+            headerShown: false,
+          }}
         />
+
+        {/* Modal de creación / edición */}
+        <Stack.Screen
+          name="modal"
+          options={{
+            presentation: 'modal',
+            animation: 'slide_from_bottom',
+            headerShown: false,
+          }}
+        />
+
       </Stack>
+
       <StatusBar style="auto" />
     </ThemeProvider>
   );

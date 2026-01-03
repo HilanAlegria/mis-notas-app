@@ -2,109 +2,197 @@ import {
   View,
   Text,
   TextInput,
-  TouchableOpacity,
   StyleSheet,
+  TouchableOpacity,
+  Image,
+  Animated,
 } from 'react-native';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { cargarNotas, guardarNotas } from '../services/storage';
+import * as ImagePicker from 'expo-image-picker';
+
 import { colors } from '../styles/theme';
+import { cargarNotas, guardarNotas } from '../services/storage';
 
-export default function NotaModal() {
-  const { id } = useLocalSearchParams();
+export default function NoteModal() {
   const router = useRouter();
+  const { id } = useLocalSearchParams();
 
-  const [texto, setTexto] = useState('');
-  const [notas, setNotas] = useState<any[]>([]);
+  const fade = useRef(new Animated.Value(0)).current;
+  const slide = useRef(new Animated.Value(40)).current;
+
+  const [title, setTitle] = useState('');
+  const [text, setText] = useState('');
+  const [image, setImage] = useState<string | null>(null);
 
   useEffect(() => {
-    cargarNotas().then((data) => {
-      if (!data) return;
-
-      setNotas(data);
-
-      if (id) {
-        const nota = data.find((n: any) => n.id === id);
-        if (nota) setTexto(nota.text);
-      }
-    });
+    Animated.parallel([
+      Animated.timing(fade, {
+        toValue: 1,
+        duration: 250,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slide, {
+        toValue: 0,
+        duration: 250,
+        useNativeDriver: true,
+      }),
+    ]).start();
   }, []);
 
+  useEffect(() => {
+    if (!id) return;
+
+    cargarNotas().then((data) => {
+      const nota = data?.find((n: any) => n.id === id);
+      if (!nota) return;
+
+      setTitle(nota.title);
+      setText(nota.text);
+      setImage(nota.image ?? null);
+    });
+  }, [id]);
+
+  const pickImage = async () => {
+  const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+  if (!permission.granted) {
+    alert('Se necesita permiso para acceder a las imágenes');
+    return;
+  }
+
+  const result = await ImagePicker.launchImageLibraryAsync({
+    quality: 0.7,
+  });
+
+  if (!result.canceled) {
+    setImage(result.assets[0].uri);
+  }
+};
+
+
+
   const guardar = async () => {
-    if (!texto.trim()) return;
+    const notas = (await cargarNotas()) ?? [];
 
-    let nuevas;
-
-    if (id) {
-      nuevas = notas.map((n) =>
-        n.id === id ? { ...n, text: texto } : n
-      );
-    } else {
-      nuevas = [
-        {
-          id: Date.now().toString(),
-          text: texto,
-          color: '#FEF3C7',
-          createdAt: Date.now(),
-        },
-        ...notas,
-      ];
-    }
+    const nuevas = id
+      ? notas.map((n: any) =>
+          n.id === id
+            ? { ...n, title, text, image }
+            : n
+        )
+      : [
+          {
+            id: Date.now().toString(),
+            title,
+            text,
+            image,
+            color: colors.card,
+            createdAt: Date.now(),
+          },
+          ...notas,
+        ];
 
     await guardarNotas(nuevas);
     router.back();
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>
+    <Animated.View
+      style={[
+        styles.container,
+        { opacity: fade, transform: [{ translateY: slide }] },
+      ]}
+    >
+      <Text style={styles.header}>
         {id ? 'Editar nota' : 'Nueva nota'}
       </Text>
 
       <TextInput
-        style={styles.input}
-        placeholder="Escribe aquí..."
-        value={texto}
-        onChangeText={setTexto}
-        multiline
+        placeholder="Título"
+        placeholderTextColor="#999"
+        style={styles.title}
+        value={title}
+        onChangeText={setTitle}
       />
 
-      <TouchableOpacity style={styles.button} onPress={guardar}>
-        <Text style={styles.buttonText}>
-          {id ? 'Actualizar' : 'Guardar'}
-        </Text>
+      <TextInput
+        placeholder="Escribe tu nota..."
+        placeholderTextColor="#999"
+        style={styles.text}
+        multiline
+        value={text}
+        onChangeText={setText}
+      />
+
+      {image && (
+        <Image source={{ uri: image }} style={styles.image} />
+      )}
+
+      <TouchableOpacity style={styles.imageBtn} onPress={pickImage}>
+        <Text style={styles.imageBtnText}>📷 Agregar imagen</Text>
       </TouchableOpacity>
-    </View>
+
+      <TouchableOpacity style={styles.saveBtn} onPress={guardar}>
+        <Text style={styles.saveText}>Guardar nota</Text>
+      </TouchableOpacity>
+    </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 20,
     backgroundColor: colors.background,
+    padding: 24,
+  },
+  header: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 16,
   },
   title: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    marginBottom: 15,
+    fontSize: 20,
+    padding: 12,
+    borderRadius: 12,
+    backgroundColor: colors.card,
+    marginBottom: 12,
   },
-  input: {
-    backgroundColor: colors.white,
-    padding: 15,
-    borderRadius: 10,
+  text: {
     minHeight: 120,
+    fontSize: 16,
+    padding: 12,
+    borderRadius: 12,
+    backgroundColor: colors.card,
     textAlignVertical: 'top',
+    marginBottom: 12,
   },
-  button: {
-    backgroundColor: colors.primary,
-    padding: 14,
+  image: {
+    width: '100%',
+    height: 180,
+    borderRadius: 12,
+    marginBottom: 12,
+  },
+  imageBtn: {
+    alignSelf: 'flex-start',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
     borderRadius: 10,
-    alignItems: 'center',
-    marginTop: 20,
+    backgroundColor: '#eee',
+    marginBottom: 20,
   },
-  buttonText: {
-    color: colors.white,
+  imageBtnText: {
+    fontSize: 14,
+  },
+  saveBtn: {
+    backgroundColor: '#000',
+    padding: 16,
+    borderRadius: 16,
+    alignItems: 'center',
+  },
+  saveText: {
+    color: '#fff',
+    fontSize: 16,
     fontWeight: 'bold',
   },
 });
