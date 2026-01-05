@@ -5,9 +5,11 @@ import {
   StyleSheet,
   LayoutAnimation,
   RefreshControl,
+  Pressable,
 } from 'react-native';
 import { useState, useCallback } from 'react';
 import { useRouter, useFocusEffect } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import NoteCard from '../components/NoteCard';
 import FloatingButton from '../components/FloatingButton';
@@ -28,11 +30,11 @@ type Nota = {
 export default function HomeScreen() {
   const router = useRouter();
   const { theme } = useTheme();
+  const insets = useSafeAreaInsets();
 
   const [notas, setNotas] = useState<Nota[]>([]);
   const [refreshing, setRefreshing] = useState(false);
 
-  // Modal de imagen
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [imageOpen, setImageOpen] = useState(false);
 
@@ -57,7 +59,6 @@ export default function HomeScreen() {
     setNotas(normalizadas);
   };
 
-  // 🔥 Se ejecuta cada vez que vuelves del modal
   useFocusEffect(
     useCallback(() => {
       cargar();
@@ -78,10 +79,27 @@ export default function HomeScreen() {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <Text style={[styles.title, { color: theme.text }]}>
-        📝 Mis Notas
-      </Text>
+    <View
+      style={[
+        styles.container,
+        {
+          backgroundColor: theme.background,
+          paddingTop: insets.top + 10,
+        },
+      ]}
+    >
+      {/* HEADER */}
+      <View style={styles.header}>
+        <Text style={[styles.title, { color: theme.text }]}>
+          📝 Mis Notas
+        </Text>
+
+        <Pressable onPress={() => router.push('/settings')}>
+          <Text style={[styles.settings, { color: theme.primary }]}>
+            ⚙️
+          </Text>
+        </Pressable>
+      </View>
 
       <FlatList
         data={notas}
@@ -113,7 +131,6 @@ export default function HomeScreen() {
 
       <FloatingButton onPress={() => router.push('/modal')} />
 
-      {/* MODAL PARA VER IMAGEN EN GRANDE */}
       <ImageViewerModal
         visible={imageOpen}
         uri={previewImage}
@@ -129,11 +146,20 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 20,
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 15,
   },
   title: {
     fontSize: 28,
     fontWeight: 'bold',
-    marginBottom: 15,
+  },
+  settings: {
+    fontSize: 26,
   },
 });
