@@ -1,12 +1,13 @@
 import {
   View,
   Text,
-  TouchableOpacity,
   StyleSheet,
-  Alert,
   Image,
+  Pressable,
+  Alert,
 } from 'react-native';
-import { colors } from '../styles/theme';
+import { Swipeable } from 'react-native-gesture-handler';
+import { useTheme } from '../context/ThemeContext';
 
 type Props = {
   title: string;
@@ -14,12 +15,8 @@ type Props = {
   image?: string | null;
   color: string;
   createdAt: number;
-  onDelete: () => void;
   onEdit: () => void;
-};
-
-const formatDate = (timestamp: number) => {
-  return new Date(timestamp).toLocaleString();
+  onDelete: () => void;
 };
 
 export default function NoteCard({
@@ -28,80 +25,114 @@ export default function NoteCard({
   image,
   color,
   createdAt,
-  onDelete,
   onEdit,
+  onDelete,
 }: Props) {
-  const confirmarBorrado = () => {
-    Alert.alert(
-      'Eliminar nota',
-      '¿Seguro de que quieres borrar esta nota?',
-      [
-        { text: 'No', style: 'cancel' },
-        { text: 'Sí', style: 'destructive', onPress: onDelete },
-      ]
-    );
-  };
+  const { theme } = useTheme();
+
+  const renderLeftActions = () => (
+    <View style={[styles.edit, { backgroundColor: theme.primary }]}>
+      <Text style={styles.actionText}>✏️</Text>
+    </View>
+  );
+
+  const renderRightActions = () => (
+    <Pressable
+      style={styles.delete}
+      onPress={() =>
+        Alert.alert(
+          'Eliminar nota',
+          '¿Seguro que quieres borrar esta nota?',
+          [
+            { text: 'No', style: 'cancel' },
+            { text: 'Sí', style: 'destructive', onPress: onDelete },
+          ]
+        )
+      }
+    >
+      <Text style={styles.actionText}>🗑️</Text>
+    </Pressable>
+  );
 
   return (
-    <TouchableOpacity activeOpacity={0.85} onPress={onEdit}>
-      <View style={[styles.card, { backgroundColor: color }]}>
-        <View style={styles.header}>
-          <Text style={styles.title}>{title || 'Sin título'}</Text>
-          <TouchableOpacity onPress={confirmarBorrado}>
-            <Text style={styles.delete}>🗑️</Text>
-          </TouchableOpacity>
-        </View>
+    <Swipeable
+      renderLeftActions={renderLeftActions}
+      renderRightActions={renderRightActions}
+      overshootLeft={false}
+      overshootRight={false}
+      onSwipeableLeftOpen={onEdit}
+    >
+      <Pressable
+        style={[styles.card, { backgroundColor: color }]}
+        onPress={onEdit}
+      >
+        {title ? (
+          <Text style={[styles.title, { color: theme.text }]}>
+            {title}
+          </Text>
+        ) : null}
 
-        {image && (
-          <Image
-            source={{ uri: image }}
-            style={styles.image}
-          />
-        )}
+        {text ? (
+          <Text style={[styles.text, { color: theme.text }]}>
+            {text}
+          </Text>
+        ) : null}
 
-        <Text style={styles.text}>{text}</Text>
-        <Text style={styles.date}>{formatDate(createdAt)}</Text>
-      </View>
-    </TouchableOpacity>
+        {image ? (
+          <Image source={{ uri: image }} style={styles.image} />
+        ) : null}
+
+        <Text style={styles.date}>
+          {new Date(createdAt).toLocaleDateString()}
+        </Text>
+      </Pressable>
+    </Swipeable>
   );
 }
 
 const styles = StyleSheet.create({
   card: {
-    padding: 15,
-    borderRadius: 14,
+    borderRadius: 16,
+    padding: 16,
     marginBottom: 12,
   },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+  title: {
+    fontSize: 18,
+    fontWeight: 'bold',
     marginBottom: 6,
   },
-  title: {
-    fontSize: 17,
-    fontWeight: 'bold',
-    color: colors.text,
-    flex: 1,
-    marginRight: 10,
+  text: {
+    fontSize: 15,
+    marginBottom: 10,
   },
   image: {
     width: '100%',
     height: 180,
-    borderRadius: 10,
-    marginBottom: 10,
-  },
-  text: {
-    fontSize: 15,
-    color: colors.text,
-    marginBottom: 8,
+    borderRadius: 12,
+    marginTop: 10,
   },
   date: {
     fontSize: 12,
-    color: '#555',
+    color: '#666',
+    marginTop: 10,
     textAlign: 'right',
   },
   delete: {
-    fontSize: 16,
+    backgroundColor: '#ff4d4d',
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: 80,
+    borderRadius: 16,
+    marginBottom: 12,
+  },
+  edit: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: 80,
+    borderRadius: 16,
+    marginBottom: 12,
+  },
+  actionText: {
+    fontSize: 22,
   },
 });

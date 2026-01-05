@@ -4,14 +4,17 @@ import {
   FlatList,
   StyleSheet,
   LayoutAnimation,
+  RefreshControl,
 } from 'react-native';
-import { useEffect, useState } from 'react';
-import { useRouter } from 'expo-router';
+import { useState, useCallback } from 'react';
+import { useRouter, useFocusEffect } from 'expo-router';
 
 import NoteCard from '../components/NoteCard';
 import FloatingButton from '../components/FloatingButton';
-import { colors } from '../styles/theme';
+import ImageViewerModal from '../components/ImageViewerModal';
+
 import { cargarNotas, guardarNotas } from '../services/storage';
+import { useTheme } from '../context/ThemeContext';
 
 type Nota = {
   id: string;
@@ -24,25 +27,48 @@ type Nota = {
 
 export default function HomeScreen() {
   const router = useRouter();
+  const { theme } = useTheme();
+
   const [notas, setNotas] = useState<Nota[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-    cargarNotas().then((data) => {
-      if (!data) return;
+  // Modal de imagen
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [imageOpen, setImageOpen] = useState(false);
 
-      const normalizadas: Nota[] = data.map((n: any) => ({
-        id: n.id,
-        title: n.title ?? '',
-        text: n.text ?? '',
-        color: n.color,
-        createdAt: n.createdAt ?? Date.now(),
-        image: n.image ?? null,
-      }));
+  const cargar = async () => {
+    const data = await cargarNotas();
 
-      normalizadas.sort((a, b) => b.createdAt - a.createdAt);
-      setNotas(normalizadas);
-    });
-  }, []);
+    if (!data) {
+      setNotas([]);
+      return;
+    }
+
+    const normalizadas: Nota[] = data.map((n: any) => ({
+      id: n.id,
+      title: n.title ?? '',
+      text: n.text ?? '',
+      color: n.color ?? theme.card,
+      createdAt: n.createdAt ?? Date.now(),
+      image: n.image ?? null,
+    }));
+
+    normalizadas.sort((a, b) => b.createdAt - a.createdAt);
+    setNotas(normalizadas);
+  };
+
+  // 🔥 Se ejecuta cada vez que vuelves del modal
+  useFocusEffect(
+    useCallback(() => {
+      cargar();
+    }, [])
+  );
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await cargar();
+    setRefreshing(false);
+  };
 
   const eliminar = async (id: string) => {
     const nuevas = notas.filter((n) => n.id !== id);
@@ -52,12 +78,21 @@ export default function HomeScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>📝 Mis Notas</Text>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
+      <Text style={[styles.title, { color: theme.text }]}>
+        📝 Mis Notas
+      </Text>
 
       <FlatList
         data={notas}
         keyExtractor={(item) => item.id}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={theme.primary}
+          />
+        }
         renderItem={({ item }) => (
           <NoteCard
             title={item.title}
@@ -67,11 +102,26 @@ export default function HomeScreen() {
             createdAt={item.createdAt}
             onEdit={() => router.push(`/modal?id=${item.id}`)}
             onDelete={() => eliminar(item.id)}
+            onImagePress={() => {
+              if (!item.image) return;
+              setPreviewImage(item.image);
+              setImageOpen(true);
+            }}
           />
         )}
       />
 
       <FloatingButton onPress={() => router.push('/modal')} />
+
+      {/* MODAL PARA VER IMAGEN EN GRANDE */}
+      <ImageViewerModal
+        visible={imageOpen}
+        uri={previewImage}
+        onClose={() => {
+          setImageOpen(false);
+          setPreviewImage(null);
+        }}
+      />
     </View>
   );
 }
@@ -79,7 +129,6 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
     padding: 20,
   },
   title: {

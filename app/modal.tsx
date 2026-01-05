@@ -11,12 +11,13 @@ import { useEffect, useRef, useState } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 
-import { colors } from '../styles/theme';
 import { cargarNotas, guardarNotas } from '../services/storage';
+import { useTheme } from '../context/ThemeContext';
 
 export default function NoteModal() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
+  const { theme } = useTheme();
 
   const fade = useRef(new Animated.Value(0)).current;
   const slide = useRef(new Animated.Value(40)).current;
@@ -54,32 +55,28 @@ export default function NoteModal() {
   }, [id]);
 
   const pickImage = async () => {
-  const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
-  if (!permission.granted) {
-    alert('Se necesita permiso para acceder a las imágenes');
-    return;
-  }
+    if (!permission.granted) {
+      alert('Se necesita permiso para acceder a las imágenes');
+      return;
+    }
 
-  const result = await ImagePicker.launchImageLibraryAsync({
-    quality: 0.7,
-  });
+    const result = await ImagePicker.launchImageLibraryAsync({
+      quality: 0.7,
+    });
 
-  if (!result.canceled) {
-    setImage(result.assets[0].uri);
-  }
-};
-
-
+    if (!result.canceled) {
+      setImage(result.assets[0].uri);
+    }
+  };
 
   const guardar = async () => {
     const notas = (await cargarNotas()) ?? [];
 
     const nuevas = id
       ? notas.map((n: any) =>
-          n.id === id
-            ? { ...n, title, text, image }
-            : n
+          n.id === id ? { ...n, title, text, image } : n
         )
       : [
           {
@@ -87,7 +84,7 @@ export default function NoteModal() {
             title,
             text,
             image,
-            color: colors.card,
+            color: theme.card,
             createdAt: Date.now(),
           },
           ...notas,
@@ -101,17 +98,21 @@ export default function NoteModal() {
     <Animated.View
       style={[
         styles.container,
-        { opacity: fade, transform: [{ translateY: slide }] },
+        {
+          backgroundColor: theme.background,
+          opacity: fade,
+          transform: [{ translateY: slide }],
+        },
       ]}
     >
-      <Text style={styles.header}>
+      <Text style={[styles.header, { color: theme.text }]}>
         {id ? 'Editar nota' : 'Nueva nota'}
       </Text>
 
       <TextInput
         placeholder="Título"
         placeholderTextColor="#999"
-        style={styles.title}
+        style={[styles.title, { backgroundColor: theme.card, color: theme.text }]}
         value={title}
         onChangeText={setTitle}
       />
@@ -119,21 +120,22 @@ export default function NoteModal() {
       <TextInput
         placeholder="Escribe tu nota..."
         placeholderTextColor="#999"
-        style={styles.text}
+        style={[styles.text, { backgroundColor: theme.card, color: theme.text }]}
         multiline
         value={text}
         onChangeText={setText}
       />
 
-      {image && (
-        <Image source={{ uri: image }} style={styles.image} />
-      )}
+      {image && <Image source={{ uri: image }} style={styles.image} />}
 
       <TouchableOpacity style={styles.imageBtn} onPress={pickImage}>
         <Text style={styles.imageBtnText}>📷 Agregar imagen</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity style={styles.saveBtn} onPress={guardar}>
+      <TouchableOpacity
+        style={[styles.saveBtn, { backgroundColor: theme.primary }]}
+        onPress={guardar}
+      >
         <Text style={styles.saveText}>Guardar nota</Text>
       </TouchableOpacity>
     </Animated.View>
@@ -143,7 +145,6 @@ export default function NoteModal() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
     padding: 24,
   },
   header: {
@@ -155,7 +156,6 @@ const styles = StyleSheet.create({
     fontSize: 20,
     padding: 12,
     borderRadius: 12,
-    backgroundColor: colors.card,
     marginBottom: 12,
   },
   text: {
@@ -163,7 +163,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     padding: 12,
     borderRadius: 12,
-    backgroundColor: colors.card,
     textAlignVertical: 'top',
     marginBottom: 12,
   },
@@ -185,7 +184,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   saveBtn: {
-    backgroundColor: '#000',
     padding: 16,
     borderRadius: 16,
     alignItems: 'center',
