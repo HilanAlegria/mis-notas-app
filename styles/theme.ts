@@ -24,8 +24,8 @@ export const themes = {
     name: 'Oscuro',
     background: '#0F0F0F',
     card: '#1C1C1C',
-    text: '#FFFFFF',
-    primary: '#FFFFFF',
+    text: '#E0E0E0', // Gris muy claro para que no canse la vista
+    primary: '#A0A0A0', // Gris medio para iconos y botones secundarios
   },
 };
 
