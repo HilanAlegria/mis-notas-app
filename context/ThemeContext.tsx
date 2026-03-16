@@ -1,18 +1,25 @@
+// context/ThemeContext.tsx
 import { createContext, useContext, useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { themes, ThemeName } from '../styles/theme';
 
+// ─── Tipos ────────────────────────────────────────────────────────────────────
+
 type ThemeContextType = {
   theme: typeof themes.pink;
   themeName: ThemeName;
-  setTheme: (name: ThemeName) => void;
+  setTheme: (name: ThemeName) => Promise<void>;
 };
+
+// ─── Contexto ─────────────────────────────────────────────────────────────────
 
 const ThemeContext = createContext<ThemeContextType>({} as ThemeContextType);
 
+// ─── Provider ─────────────────────────────────────────────────────────────────
+
 export function ThemeProviderCustom({ children }: { children: React.ReactNode }) {
   const [themeName, setThemeName] = useState<ThemeName>('pink');
-  const [isLoaded, setIsLoaded] = useState(false); // Nuevo: Evita el flash de color
+  const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
     const loadTheme = async () => {
@@ -22,7 +29,7 @@ export function ThemeProviderCustom({ children }: { children: React.ReactNode })
           setThemeName(saved as ThemeName);
         }
       } catch (e) {
-        console.error("Error cargando el tema", e);
+        console.error('Error cargando el tema:', e);
       } finally {
         setIsLoaded(true);
       }
@@ -30,12 +37,11 @@ export function ThemeProviderCustom({ children }: { children: React.ReactNode })
     loadTheme();
   }, []);
 
-  const setTheme = async (name: ThemeName) => {
+  const setTheme = async (name: ThemeName): Promise<void> => {
     setThemeName(name);
     await AsyncStorage.setItem('theme', name);
   };
 
-  // Si no ha cargado el tema guardado, no renderizamos para evitar parpadeos
   if (!isLoaded) return null;
 
   return (
@@ -50,5 +56,7 @@ export function ThemeProviderCustom({ children }: { children: React.ReactNode })
     </ThemeContext.Provider>
   );
 }
+
+// ─── Hook ─────────────────────────────────────────────────────────────────────
 
 export const useTheme = () => useContext(ThemeContext);

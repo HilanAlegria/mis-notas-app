@@ -1,28 +1,32 @@
-import { Modal, View, Image, StyleSheet, TouchableOpacity, Text } from 'react-native';
+import { Modal, View, Image, StyleSheet, TouchableOpacity } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 
-export default function ImageViewerModal({
-  visible,
-  uri,
-  onClose,
-}: {
+// ─── Tipos ────────────────────────────────────────────────────────────────────
+
+type Props = {
   visible: boolean;
   uri: string | null;
   onClose: () => void;
-}) {
+};
+
+// ─── Componente ───────────────────────────────────────────────────────────────
+
+export default function ImageViewerModal({ visible, uri, onClose }: Props) {
   if (!uri) return null;
 
   return (
-    <Modal visible={visible} transparent>
+    <Modal visible={visible} transparent animationType="fade">
       <View style={styles.overlay}>
-        <TouchableOpacity style={styles.close} onPress={onClose}>
-          <Text style={{ color: '#fff', fontSize: 18 }}>✕</Text>
+        <TouchableOpacity style={styles.closeBtn} onPress={onClose} hitSlop={12}>
+          <Ionicons name="close" size={28} color="#fff" />
         </TouchableOpacity>
-
         <Image source={{ uri }} style={styles.image} resizeMode="contain" />
       </View>
     </Modal>
   );
 }
+
+// ─── Estilos ─────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   overlay: {
@@ -35,7 +39,7 @@ const styles = StyleSheet.create({
     width: '90%',
     height: '80%',
   },
-  close: {
+  closeBtn: {
     position: 'absolute',
     top: 40,
     right: 20,

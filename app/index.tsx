@@ -4,87 +4,77 @@ import {
   FlatList,
   StyleSheet,
   LayoutAnimation,
+  Platform,
+  UIManager,
   RefreshControl,
   Pressable,
   TextInput,
+  Alert,
 } from 'react-native';
 import { useState, useCallback } from 'react';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-
+import { Ionicons } from '@expo/vector-icons';
 import NoteCard from '../components/NoteCard';
 import FloatingButton from '../components/FloatingButton';
 import ImageViewerModal from '../components/ImageViewerModal';
-
-import { cargarNotas, guardarNotas } from '../services/storage';
 import { useTheme } from '../context/ThemeContext';
+import { useNotes } from '../context/NotesContext';
 
-type Nota = {
-  id: string;
-  title: string;
-  text: string;
-  color: string;
-  createdAt: number;
-  image?: string | null;
-};
+// Fix para LayoutAnimation en Android
+if (Platform.OS === 'android') {
+  UIManager.setLayoutAnimationEnabledExperimental?.(true);
+}
 
-const normalizarNota = (n: any, defaultColor: string): Nota => ({
-  id: n.id,
-  title: n.title ?? '',
-  text: n.text ?? '',
-  color: n.color ?? defaultColor,
-  createdAt: n.createdAt ?? Date.now(),
-  image: n.image ?? null,
-});
+// ─── Componente ───────────────────────────────────────────────────────────────
 
 export default function HomeScreen() {
   const router = useRouter();
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
+  const { notas, recargar, eliminarNota } = useNotes();
 
-  const [notas, setNotas] = useState<Nota[]>([]);
-  const [search, setSearch] = useState(''); // Estado para la búsqueda
+  const [search, setSearch] = useState('');
   const [refreshing, setRefreshing] = useState(false);
-
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [imageOpen, setImageOpen] = useState(false);
 
-  const cargar = async () => {
-    try {
-      const data = await cargarNotas();
-      if (!data) {
-        setNotas([]);
-        return;
-      }
-      const normalizadas = data
-        .map((n: any) => normalizarNota(n, theme.card))
-        .sort((a: Nota, b: Nota) => b.createdAt - a.createdAt);
-      setNotas(normalizadas);
-    } catch (error) {
-      console.error("Error al cargar notas:", error);
-    }
-  };
+  // ─── Carga al enfocar pantalla ───────────────────────────────────────────────
 
   useFocusEffect(
     useCallback(() => {
-      cargar();
-    }, [theme.card])
+      recargar();
+    }, [recargar])
   );
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await cargar();
+    await recargar();
     setRefreshing(false);
   };
 
-  const eliminar = async (id: string) => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    const nuevas = notas.filter((n) => n.id !== id);
-    setNotas(nuevas);
-    await guardarNotas(nuevas);
+  // ─── Eliminar con confirmación ───────────────────────────────────────────────
+
+  const confirmarEliminar = (id: string) => {
+    Alert.alert(
+      'Eliminar nota',
+      'Esta accion no se puede deshacer. Continuar?',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: async () => {
+            LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+            await eliminarNota(id);
+          },
+        },
+      ]
+    );
   };
 
-  // --- Lógica de filtrado ---
+  // ─── Filtrado ────────────────────────────────────────────────────────────────
+
   const notasFiltradas = notas.filter((nota) => {
     const criterio = search.toLowerCase();
     return (
@@ -92,6 +82,8 @@ export default function HomeScreen() {
       nota.text.toLowerCase().includes(criterio)
     );
   });
+
+  // ─── Render ──────────────────────────────────────────────────────────────────
 
   return (
     <View
@@ -105,53 +97,48 @@ export default function HomeScreen() {
     >
       {/* HEADER */}
       <View style={styles.header}>
-        <Text style={[styles.title, { color: theme.text }]}>
-           Mis Happy Notas
-        </Text>
-        <Pressable onPress={() => router.push('/settings')}>
-          <Text style={[styles.settings, { color: theme.primary }]}>
-            ⚙️
-          </Text>
+        <Text style={[styles.title, { color: theme.text }]}>Happy Notes</Text>
+        <Pressable onPress={() => router.push('/settings')} hitSlop={8}>
+          <Ionicons name="settings-outline" size={24} color={theme.primary} />
         </Pressable>
       </View>
 
-      {/* BARRA DE BÚSQUEDA */}
+      {/* BARRA DE BUSQUEDA */}
       <TextInput
         style={[
           styles.searchBar,
-          { 
-            backgroundColor: theme.card, 
+          {
+            backgroundColor: theme.card,
             color: theme.text,
-            borderColor: theme.primary + '40' // Color primario con 40% de opacidad
-          }
+            borderColor: theme.primary + '40',
+          },
         ]}
         placeholder="Buscar notas..."
         placeholderTextColor={theme.text + '80'}
         value={search}
         onChangeText={setSearch}
+        returnKeyType="search"
+        clearButtonMode="while-editing"
       />
 
+      {/* LISTA */}
       <FlatList
-        data={notasFiltradas} // Usamos las notas filtradas
+        data={notasFiltradas}
         keyExtractor={(item) => item.id}
         contentContainerStyle={{ paddingBottom: 100, flexGrow: 1 }}
-        
-        initialNumToRender={10}  
-        windowSize={5}            
-        maxToRenderPerBatch={5}     
-        removeClippedSubviews={true} 
-
-        // ESTADO VACÍO
+        initialNumToRender={10}
+        windowSize={5}
+        maxToRenderPerBatch={5}
+        removeClippedSubviews={true}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <Text style={[styles.emptyText, { color: theme.text + '90' }]}>
-              {search.length > 0 
-                ? "No se encontraron resultados 🔍" 
-                : "Aún no tienes notas. ¡Crea la primera! ✨"}
+              {search.length > 0
+                ? 'Sin resultados para esa busqueda.'
+                : 'Aun no tienes notas. Crea la primera.'}
             </Text>
           </View>
         }
-
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -167,7 +154,7 @@ export default function HomeScreen() {
             color={item.color}
             createdAt={item.createdAt}
             onEdit={() => router.push(`/modal?id=${item.id}`)}
-            onDelete={() => eliminar(item.id)}
+            onDelete={() => confirmarEliminar(item.id)}
             onImagePress={() => {
               if (!item.image) return;
               setPreviewImage(item.image);
@@ -191,6 +178,8 @@ export default function HomeScreen() {
   );
 }
 
+// ─── Estilos ─────────────────────────────────────────────────────────────────
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -205,9 +194,6 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: 'bold',
-  },
-  settings: {
-    fontSize: 26,
   },
   searchBar: {
     height: 45,

@@ -1,3 +1,4 @@
+// app/modal.tsx
 import {
   View,
   Text,
@@ -9,20 +10,24 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
+  Alert,
 } from 'react-native';
 import { useEffect, useRef, useState } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
-import { useSafeAreaInsets } from 'react-native-safe-area-context'; // Importante para el Notch
-
-import { cargarNotas, guardarNotas } from '../services/storage';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../context/ThemeContext';
+import { useNotes } from '../context/NotesContext';
+import { copiarImagenLocal } from '../services/storage';
+
+// ─── Componente ───────────────────────────────────────────────────────────────
 
 export default function NoteModal() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
   const { theme } = useTheme();
-  const insets = useSafeAreaInsets(); // Hook para obtener el espacio seguro
+  const insets = useSafeAreaInsets();
+  const { notas, agregarNota, editarNota } = useNotes();
 
   const fade = useRef(new Animated.Value(0)).current;
   const slide = useRef(new Animated.Value(40)).current;
@@ -30,6 +35,9 @@ export default function NoteModal() {
   const [title, setTitle] = useState('');
   const [text, setText] = useState('');
   const [image, setImage] = useState<string | null>(null);
+  const [guardandoImagen, setGuardandoImagen] = useState(false);
+
+  // ─── Animación de entrada ────────────────────────────────────────────────────
 
   useEffect(() => {
     Animated.parallel([
@@ -38,56 +46,90 @@ export default function NoteModal() {
     ]).start();
   }, []);
 
+  // ─── Carga de nota existente ─────────────────────────────────────────────────
+
   useEffect(() => {
     if (!id) return;
-    cargarNotas().then((data) => {
-      const nota = data?.find((n: any) => n.id === id);
-      if (!nota) return;
-      setTitle(nota.title);
-      setText(nota.text);
-      setImage(nota.image ?? null);
-    });
-  }, [id]);
+    const nota = notas.find((n) => n.id === id);
+    if (!nota) return;
+    setTitle(nota.title);
+    setText(nota.text);
+    setImage(nota.image ?? null);
+  }, [id, notas]);
+
+  // ─── Selección de imagen ─────────────────────────────────────────────────────
 
   const pickImage = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
-      alert('Se necesita permiso para acceder a las imágenes');
+      Alert.alert('Permiso requerido', 'Se necesita permiso para acceder a las imagenes.');
       return;
     }
+
     const result = await ImagePicker.launchImageLibraryAsync({ quality: 0.7 });
-    if (!result.canceled) {
-      setImage(result.assets[0].uri);
+    if (result.canceled) return;
+
+    setGuardandoImagen(true);
+    const uriPersistente = await copiarImagenLocal(result.assets[0].uri);
+    setGuardandoImagen(false);
+
+    if (!uriPersistente) {
+      Alert.alert('Error', 'No se pudo guardar la imagen. Intenta de nuevo.');
+      return;
     }
+
+    setImage(uriPersistente);
   };
+
+  // ─── Guardar nota ────────────────────────────────────────────────────────────
 
   const guardar = async () => {
-    const notas = (await cargarNotas()) ?? [];
-    const nuevas = id
-      ? notas.map((n: any) => (n.id === id ? { ...n, title, text, image } : n))
-      : [{ id: Date.now().toString(), title, text, image, color: theme.card, createdAt: Date.now() }, ...notas];
+    const tituloLimpio = title.trim();
+    const textoLimpio = text.trim();
 
-    await guardarNotas(nuevas);
+    if (!tituloLimpio && !textoLimpio && !image) {
+      Alert.alert('Nota vacía', 'Agrega un titulo, texto o imagen antes de guardar.');
+      return;
+    }
+
+    if (id) {
+      await editarNota(id as string, {
+        title: tituloLimpio,
+        text: textoLimpio,
+        image,
+      });
+    } else {
+      await agregarNota({
+        title: tituloLimpio,
+        text: textoLimpio,
+        image,
+        color: theme.card,
+      });
+    }
     router.back();
   };
+
+  // ─── Render ──────────────────────────────────────────────────────────────────
 
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={{ flex: 1, backgroundColor: theme.background }}
     >
-      {/* HEADER AJUSTADO AL ÁREA SEGURA */}
-      <View style={[
-        styles.topBar, 
-        { 
-          paddingTop: insets.top > 0 ? insets.top : 15, // Ajuste dinámico para el notch
-          backgroundColor: theme.background 
-        }
-      ]}>
+      {/* HEADER */}
+      <View
+        style={[
+          styles.topBar,
+          {
+            paddingTop: insets.top > 0 ? insets.top : 15,
+            backgroundColor: theme.background,
+          },
+        ]}
+      >
         <TouchableOpacity onPress={() => router.back()} style={styles.topBtn}>
           <Text style={[styles.cancelBtn, { color: theme.text }]}>Cancelar</Text>
         </TouchableOpacity>
-        
+
         <TouchableOpacity
           style={[styles.saveBtnTop, { backgroundColor: theme.primary }]}
           onPress={guardar}
@@ -96,7 +138,8 @@ export default function NoteModal() {
         </TouchableOpacity>
       </View>
 
-      <ScrollView 
+      {/* CONTENIDO */}
+      <ScrollView
         contentContainerStyle={styles.scrollContainer}
         keyboardShouldPersistTaps="handled"
       >
@@ -106,17 +149,17 @@ export default function NoteModal() {
           </Text>
 
           <TextInput
-            placeholder="Título"
-            placeholderTextColor="#999"
-            style={[styles.title, { backgroundColor: theme.card, color: theme.text }]}
+            placeholder="Titulo"
+            placeholderTextColor={theme.text + '60'}
+            style={[styles.titleInput, { backgroundColor: theme.card, color: theme.text }]}
             value={title}
             onChangeText={setTitle}
           />
 
           <TextInput
             placeholder="Escribe tu nota..."
-            placeholderTextColor="#999"
-            style={[styles.text, { backgroundColor: theme.card, color: theme.text }]}
+            placeholderTextColor={theme.text + '60'}
+            style={[styles.textInput, { backgroundColor: theme.card, color: theme.text }]}
             multiline
             scrollEnabled={false}
             value={text}
@@ -125,17 +168,28 @@ export default function NoteModal() {
 
           {image && <Image source={{ uri: image }} style={styles.image} />}
 
-          <TouchableOpacity 
-            style={[styles.imageBtn, { backgroundColor: theme.card + '80' }]} 
+          <TouchableOpacity
+            style={[
+              styles.imageBtn,
+              {
+                backgroundColor: theme.card + '80',
+                opacity: guardandoImagen ? 0.5 : 1,
+              },
+            ]}
             onPress={pickImage}
+            disabled={guardandoImagen}
           >
-            <Text style={[styles.imageBtnText, { color: theme.text }]}>📷 Agregar imagen</Text>
+            <Text style={[styles.imageBtnText, { color: theme.text }]}>
+              {guardandoImagen ? 'Guardando imagen...' : 'Agregar imagen'}
+            </Text>
           </TouchableOpacity>
         </Animated.View>
       </ScrollView>
     </KeyboardAvoidingView>
   );
 }
+
+// ─── Estilos ─────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   topBar: {
@@ -168,13 +222,13 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginBottom: 20,
   },
-  title: {
+  titleInput: {
     fontSize: 20,
     padding: 12,
     borderRadius: 12,
     marginBottom: 12,
   },
-  text: {
+  textInput: {
     minHeight: 250,
     fontSize: 16,
     padding: 12,

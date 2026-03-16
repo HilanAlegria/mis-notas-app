@@ -1,13 +1,9 @@
-import {
-  View,
-  Text,
-  StyleSheet,
-  Image,
-  Pressable,
-  Alert,
-} from 'react-native';
+import { View, Text, StyleSheet, Image, Pressable } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
+import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
+
+// ─── Tipos ────────────────────────────────────────────────────────────────────
 
 type Props = {
   title: string;
@@ -17,8 +13,22 @@ type Props = {
   createdAt: number;
   onEdit: () => void;
   onDelete: () => void;
-  onImagePress?: () => void; 
+  onImagePress?: () => void;
 };
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+const getContrastingColor = (hexColor: string): string => {
+  if (!hexColor || hexColor.length < 7) return '#1A1A1A';
+  const hex = hexColor.replace('#', '');
+  const r = parseInt(hex.substr(0, 2), 16);
+  const g = parseInt(hex.substr(2, 2), 16);
+  const b = parseInt(hex.substr(4, 2), 16);
+  const yiq = (r * 299 + g * 587 + b * 114) / 1000;
+  return yiq >= 128 ? '#1A1A1A' : '#FFFFFF';
+};
+
+// ─── Componente ───────────────────────────────────────────────────────────────
 
 export default function NoteCard({
   title,
@@ -32,53 +42,25 @@ export default function NoteCard({
 }: Props) {
   const { theme } = useTheme();
 
-  // --- FUNCIÓN DE CONTRASTE AUTOMÁTICA ---
-  // Esta función calcula si un color es claro u oscuro
-  const getContrastingColor = (hexColor: string) => {
-    // Si no hay color, usamos el del tema
-    if (!hexColor) return theme.text;
-    
-    // Eliminamos el # si existe
-    const hex = hexColor.replace('#', '');
-    const r = parseInt(hex.substr(0, 2), 16);
-    const g = parseInt(hex.substr(2, 2), 16);
-    const b = parseInt(hex.substr(4, 2), 16);
-    
-    // Fórmula de luminancia (estándar de accesibilidad)
-    const yiq = (r * 299 + g * 587 + b * 114) / 1000;
-    
-    // Si el valor es > 128, el color es claro -> usamos texto negro
-    // Si es < 128, el color es oscuro -> usamos texto blanco
-    return yiq >= 128 ? '#1A1A1A' : '#FFFFFF';
-  };
-
   const textColor = getContrastingColor(color);
-  // Para la fecha, usamos el mismo color pero con un poco de transparencia
-  const dateColor = textColor === '#1A1A1A' ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.6)';
+  const dateColor =
+    textColor === '#1A1A1A' ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.6)';
+
+  // ─── Acciones de swipe ──────────────────────────────────────────────────────
 
   const renderLeftActions = () => (
-    <View style={[styles.edit, { backgroundColor: theme.primary }]}>
-      <Text style={styles.actionText}>✏️</Text>
+    <View style={[styles.actionLeft, { backgroundColor: theme.primary }]}>
+      <Ionicons name="pencil-outline" size={24} color="#fff" />
     </View>
   );
 
   const renderRightActions = () => (
-    <Pressable
-      style={styles.delete}
-      onPress={() =>
-        Alert.alert(
-          'Eliminar nota',
-          '¿Seguro que quieres borrar esta nota?',
-          [
-            { text: 'No', style: 'cancel' },
-            { text: 'Sí', style: 'destructive', onPress: onDelete },
-          ]
-        )
-      }
-    >
-      <Text style={styles.actionText}>🗑️</Text>
+    <Pressable style={styles.actionRight} onPress={onDelete}>
+      <Ionicons name="trash-outline" size={24} color="#fff" />
     </Pressable>
   );
+
+  // ─── Render ────────────────────────────────────────────────────────────────
 
   return (
     <Swipeable
@@ -88,21 +70,15 @@ export default function NoteCard({
       overshootRight={false}
       onSwipeableLeftOpen={onEdit}
     >
-      <Pressable
-        style={[styles.card, { backgroundColor: color }]}
-        onPress={onEdit}
-      >
+      <Pressable style={[styles.card, { backgroundColor: color }]} onPress={onEdit}>
         {title ? (
-          <Text 
-            style={[styles.title, { color: textColor }]}
-            numberOfLines={1}
-          >
+          <Text style={[styles.title, { color: textColor }]} numberOfLines={1}>
             {title}
           </Text>
         ) : null}
 
         {text ? (
-          <Text 
+          <Text
             style={[styles.text, { color: textColor }]}
             numberOfLines={4}
             ellipsizeMode="tail"
@@ -126,6 +102,8 @@ export default function NoteCard({
     </Swipeable>
   );
 }
+
+// ─── Estilos ─────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   card: {
@@ -162,22 +140,19 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
   },
-  delete: {
+  actionLeft: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: 80,
+    borderRadius: 16,
+    marginBottom: 12,
+  },
+  actionRight: {
     backgroundColor: '#ff4d4d',
     justifyContent: 'center',
     alignItems: 'center',
     width: 80,
     borderRadius: 16,
     marginBottom: 12,
-  },
-  edit: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    width: 80,
-    borderRadius: 16,
-    marginBottom: 12,
-  },
-  actionText: {
-    fontSize: 22,
   },
 });

@@ -1,3 +1,4 @@
+// settings.tsx
 import {
   View,
   Text,
@@ -13,12 +14,10 @@ export default function SettingsScreen() {
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       <Text style={[styles.title, { color: theme.text }]}>
-        🎨 Ajustes de tema
+        Tema
       </Text>
-
       {Object.entries(themes).map(([key, value]) => {
         const selected = key === themeName;
-
         return (
           <Pressable
             key={key}
@@ -46,6 +45,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 24,
+    paddingTop: 60,
   },
   title: {
     fontSize: 26,
