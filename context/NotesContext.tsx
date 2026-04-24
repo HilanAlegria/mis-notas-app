@@ -1,6 +1,6 @@
 // context/NotesContext.tsx
 import { createContext, useContext, useEffect, useState, useCallback } from 'react';
-import { cargarNotas, guardarNotas } from '../services/storage';
+import { cargarNotas, guardarNotas, eliminarImagenLocal, migrarClaveAntigua } from '../services/storage';
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -60,10 +60,14 @@ export function NotesProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    recargar();
+    const inicializar = async () => {
+      await migrarClaveAntigua();
+      await recargar();
+    };
+    inicializar();
   }, [recargar]);
 
-  // ─── Acciones ──────────────────────────────────────────────────────────────
+  // ─── Agregar ───────────────────────────────────────────────────────────────
 
   const agregarNota = async (datos: Omit<Nota, 'id' | 'createdAt'>) => {
     const nueva: Nota = {
@@ -76,16 +80,34 @@ export function NotesProvider({ children }: { children: React.ReactNode }) {
     await guardarNotas(nuevas);
   };
 
+  // ─── Editar ────────────────────────────────────────────────────────────────
+
   const editarNota = async (
     id: string,
     datos: Partial<Omit<Nota, 'id' | 'createdAt'>>
   ) => {
+    const notaActual = notas.find((n) => n.id === id);
+    if (
+      notaActual?.image &&
+      datos.image !== undefined &&
+      datos.image !== notaActual.image
+    ) {
+      await eliminarImagenLocal(notaActual.image);
+    }
+
     const nuevas = notas.map((n) => (n.id === id ? { ...n, ...datos } : n));
     setNotas(nuevas);
     await guardarNotas(nuevas);
   };
 
+  // ─── Eliminar ──────────────────────────────────────────────────────────────
+
   const eliminarNota = async (id: string) => {
+    const nota = notas.find((n) => n.id === id);
+    if (nota?.image) {
+      await eliminarImagenLocal(nota.image);
+    }
+
     const nuevas = notas.filter((n) => n.id !== id);
     setNotas(nuevas);
     await guardarNotas(nuevas);

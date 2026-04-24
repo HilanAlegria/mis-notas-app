@@ -1,7 +1,11 @@
+// services/storage.ts
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { File, Paths } from 'expo-file-system';
 
 const KEY = '@happynotes_data';
+const KEY_LEGACY = 'NOTAS';
+
+// ─── Notas ────────────────────────────────────────────────────────────────────
 
 export const guardarNotas = async (notas: any[]): Promise<boolean> => {
   try {
@@ -36,16 +40,39 @@ export const borrarTodo = async (): Promise<void> => {
   }
 };
 
+// ─── Migración ────────────────────────────────────────────────────────────────
+
+/**
+ * Busca datos en la clave legacy 'NOTAS' y los mueve a '@happynotes_data'.
+ * Corre una sola vez — después elimina la clave vieja.
+ */
+export const migrarClaveAntigua = async (): Promise<void> => {
+  try {
+    const dataLegacy = await AsyncStorage.getItem(KEY_LEGACY);
+    if (dataLegacy === null) return;
+
+    const dataNueva = await AsyncStorage.getItem(KEY);
+
+    if (dataNueva === null) {
+      await AsyncStorage.setItem(KEY, dataLegacy);
+      console.log('Migracion completada: datos movidos a nueva clave.');
+    }
+
+    await AsyncStorage.removeItem(KEY_LEGACY);
+  } catch (e) {
+    console.error('Error en migracion de clave:', e);
+  }
+};
+
+// ─── Imágenes ─────────────────────────────────────────────────────────────────
+
 export const copiarImagenLocal = async (uri: string): Promise<string | null> => {
   try {
     const nombreArchivo = `nota_img_${Date.now()}.jpg`;
     const destino = Paths.join(Paths.document, nombreArchivo);
-
     const archivoOrigen = new File(uri);
     const archivoDestino = new File(destino);
-
     archivoOrigen.copy(archivoDestino);
-
     return archivoDestino.uri;
   } catch (e) {
     console.error('Error al copiar la imagen:', e);
