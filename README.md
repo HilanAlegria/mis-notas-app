@@ -46,5 +46,10 @@ To learn more about developing your project with Expo, look at the following res
 
 Join our community of developers creating universal apps.
 
+## app happy notes
+- happy notes es una app sencilla de notas, no tiene muchas funciones aparte de poder crear, editar y eliminar notas.
+- si alguien logra hacer que la app pese menos lo agradeceria mucho 
+
+
 - [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
 - [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
